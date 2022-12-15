@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "papyrus-debug-server",
+  "version-semver": "1.0.0",
+  "port-version": 0,
+  "description": "Websocket based debug adapter protocol xSE plugin for live Papyrus debugging support.",
+  "homepage": "https://github.com/joelday/papyrus-debug-server",
+  "license": "MIT",
+  "supports": "windows & x64",
+  "dependencies": [
+    "cppdap"
+  ]
+}
