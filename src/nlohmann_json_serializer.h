@@ -19,8 +19,11 @@
 #include "dap/serialization.h"
 #include "dap/types.h"
 
+#ifdef USING_VCPKG_PROVIDED_JSON
+#include <nlohmann/json.hpp>
+#else
 #include <nlohmann/json_fwd.hpp>
-
+#endif
 namespace dap {
 namespace json {
 

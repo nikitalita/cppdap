@@ -92,10 +92,8 @@ if (DEFINED USING_VCPKG_DEPENDENCIES)
     set(CPPDAP_JSON_LIBRARY "nlohmann")
 endif()
 
-message(STATUS "CPPDAP_JSON_INCLUDES_DIR is ${CPPDAP_JSON_INCLUDES_DIR}")
 set_if_not_defined(CPPDAP_JSON_INCLUDES_DIR  "${CPPDAP_THIRD_PARTY_DIR}/json/include")
 set_if_not_defined(CPPDAP_GOOGLETEST_DIR  "${CPPDAP_THIRD_PARTY_DIR}/googletest")
-message(STATUS "CPPDAP_JSON_INCLUDES_DIR is ${CPPDAP_JSON_INCLUDES_DIR}")
 
 if(NOT DEFINED CPPDAP_JSON_LIBRARY)
     # Attempt to detect JSON library from CPPDAP_JSON_DIR
@@ -168,10 +166,18 @@ function(cppdap_set_target_options target)
     endif()
 
     # Add define for JSON library in use
+    message(STATUS "CPPDAP_JSON_LIBRARY_UPPER IS ${CPPDAP_JSON_LIBRARY_UPPER}")
     set_target_properties(${target} PROPERTIES
         COMPILE_DEFINITIONS "CPPDAP_JSON_${CPPDAP_JSON_LIBRARY_UPPER}=1"
     )
-
+    if (DEFINED USING_VCPKG_DEPENDENCIES)
+        message(STATUS "DOING THE THING!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        target_compile_definitions(${target} PRIVATE USING_VCPKG_PROVIDED_JSON=1 CPPDAP_JSON_${CPPDAP_JSON_LIBRARY_UPPER}=1 )
+        # set_target_properties(${target} PROPERTIES
+        #     COMPILE_DEFINITIONS "USING_VCPKG_PROVIDED_JSON=1,CPPDAP_JSON_${CPPDAP_JSON_LIBRARY_UPPER}=1"
+        # )
+        target_link_libraries(${target} PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
+    endif()
     # Treat all warnings as errors
     if(CPPDAP_WARNINGS_AS_ERRORS)
         if(MSVC)
@@ -212,15 +218,12 @@ endfunction(cppdap_set_target_options)
 add_library(cppdap STATIC ${CPPDAP_LIST})
 set_target_properties(cppdap PROPERTIES POSITION_INDEPENDENT_CODE 1)
 
-if (NOT DEFINED USING_VCPKG_DEPENDENCIES)
-    target_include_directories(cppdap PRIVATE "${CPPDAP_JSON_INCLUDES_DIR}")
-endif()
 message(STATUS "CPPDAP_JSON_INCLUDES_DIR is ${CPPDAP_JSON_INCLUDES_DIR}")
 
 
 cppdap_set_target_options(cppdap)
 
-target_link_libraries("${CPPDAP_TARGET_NAME}" "${CPPDAP_OS_LIBS}")
+target_link_libraries(${CPPDAP_TARGET_NAME} "${CPPDAP_OS_LIBS}")
 
 set(CPPDAP_CONFIG_INSTALL_DIR        "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}" CACHE INTERNAL "")
 set(CPPDAP_INCLUDE_INSTALL_DIR       "${CMAKE_INSTALL_INCLUDEDIR}")
