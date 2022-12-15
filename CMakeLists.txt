@@ -22,6 +22,7 @@ endif()
 cmake_minimum_required(VERSION 2.8)
 
 set (CMAKE_CXX_STANDARD 11)
+set(CPPDAP_TARGET_NAME               ${PROJECT_NAME})
 
 include(GNUInstallDirs)
 
@@ -55,8 +56,6 @@ endfunction()
 set(CPPDAP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(CPPDAP_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set_if_not_defined(CPPDAP_THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
-set_if_not_defined(CPPDAP_JSON_DIR        ${CPPDAP_THIRD_PARTY_DIR}/json)
-set_if_not_defined(CPPDAP_GOOGLETEST_DIR  ${CPPDAP_THIRD_PARTY_DIR}/googletest)
 
 ###########################################################
 # Submodules
@@ -72,15 +71,41 @@ endif(CPPDAP_BUILD_TESTS)
 ###########################################################
 # JSON library
 ###########################################################
+if(NOT DEFINED CPPDAP_FORCE_LOCAL_THIRDPARTY)
+    if (DEFINED VCPKG_TARGET_TRIPLET)
+        set(USING_VCPKG_DEPENDENCIES TRUE)
+    elseif (DEFINED CMAKE_TOOLCHAIN_FILE)
+        string(FIND ${CMAKE_TOOLCHAIN_FILE} "vcpkg.cmake" USING_VCPKG_DEPENDENCIES)
+    endif()
+    
+    if (USING_VCPKG_DEPENDENCIES)
+        message(STATUS "HALDO!!!")
+    endif()
+    
+endif()
+if (DEFINED USING_VCPKG_DEPENDENCIES)
+    message(STATUS "made it ieerererere")
+
+    find_package(nlohmann_json CONFIG REQUIRED)
+    set(CPPDAP_JSON_INCLUDES_DIR "tbd")
+    message(STATUS "CPPDAP_JSON_INCLUDES_DIR is ${CPPDAP_JSON_INCLUDES_DIR}")
+    set(CPPDAP_JSON_LIBRARY "nlohmann")
+endif()
+
+message(STATUS "CPPDAP_JSON_INCLUDES_DIR is ${CPPDAP_JSON_INCLUDES_DIR}")
+set_if_not_defined(CPPDAP_JSON_INCLUDES_DIR  "${CPPDAP_THIRD_PARTY_DIR}/json/include")
+set_if_not_defined(CPPDAP_GOOGLETEST_DIR  "${CPPDAP_THIRD_PARTY_DIR}/googletest")
+message(STATUS "CPPDAP_JSON_INCLUDES_DIR is ${CPPDAP_JSON_INCLUDES_DIR}")
+
 if(NOT DEFINED CPPDAP_JSON_LIBRARY)
     # Attempt to detect JSON library from CPPDAP_JSON_DIR
-    if(NOT EXISTS "${CPPDAP_JSON_DIR}")
-        message(FATAL_ERROR "CPPDAP_JSON_DIR '${CPPDAP_JSON_DIR}' does not exist")
+    if(NOT EXISTS "${CPPDAP_JSON_INCLUDES_DIR}")
+        message(FATAL_ERROR "CPPDAP_JSON_DIR '${CPPDAP_JSON_INCLUDES_DIR}' does not exist")
     endif()
 
-    if(EXISTS "${CPPDAP_JSON_DIR}/include/nlohmann")
+    if(EXISTS "${CPPDAP_JSON_INCLUDES_DIR}/nlohmann")
         set(CPPDAP_JSON_LIBRARY "nlohmann")
-    elseif(EXISTS "${CPPDAP_JSON_DIR}/include/rapidjson")
+    elseif(EXISTS "${CPPDAP_JSON_INCLUDES_DIR}/rapidjson")
         set(CPPDAP_JSON_LIBRARY "rapid")
     else()
         message(FATAL_ERROR "Could not determine JSON library from ${CPPDAP_JSON_LIBRARY}")
@@ -187,13 +212,16 @@ endfunction(cppdap_set_target_options)
 add_library(cppdap STATIC ${CPPDAP_LIST})
 set_target_properties(cppdap PROPERTIES POSITION_INDEPENDENT_CODE 1)
 
-target_include_directories(cppdap PRIVATE "${CPPDAP_JSON_DIR}/include/")
+if (NOT DEFINED USING_VCPKG_DEPENDENCIES)
+    target_include_directories(cppdap PRIVATE "${CPPDAP_JSON_INCLUDES_DIR}")
+endif()
+message(STATUS "CPPDAP_JSON_INCLUDES_DIR is ${CPPDAP_JSON_INCLUDES_DIR}")
+
 
 cppdap_set_target_options(cppdap)
 
-target_link_libraries(cppdap "${CPPDAP_OS_LIBS}")
+target_link_libraries("${CPPDAP_TARGET_NAME}" "${CPPDAP_OS_LIBS}")
 
-set(CPPDAP_TARGET_NAME               ${PROJECT_NAME})
 set(CPPDAP_CONFIG_INSTALL_DIR        "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}" CACHE INTERNAL "")
 set(CPPDAP_INCLUDE_INSTALL_DIR       "${CMAKE_INSTALL_INCLUDEDIR}")
 set(CPPDAP_TARGETS_EXPORT_NAME       "${PROJECT_NAME}-targets")
@@ -255,7 +283,7 @@ if(CPPDAP_BUILD_TESTS)
         ${CPPDAP_GOOGLETEST_DIR}/googlemock/include/
         ${CPPDAP_GOOGLETEST_DIR}/googletest/
         ${CPPDAP_GOOGLETEST_DIR}/googletest/include/
-        ${CPPDAP_JSON_DIR}/include/
+        ${CPPDAP_JSON_INCLUDES_DIR}
     )
 
     add_executable(cppdap-unittests ${DAP_TEST_LIST})
@@ -301,7 +329,7 @@ if(CPPDAP_BUILD_FUZZER)
     target_include_directories(cppdap-fuzzer PUBLIC
         ${CPPDAP_INCLUDE_DIR}
         ${CPPDAP_SRC_DIR}
-        ${CPPDAP_JSON_DIR}/include/
+        ${CPPDAP_JSON_INCLUDES_DIR}
     )
     target_link_libraries(cppdap-fuzzer cppdap "${CPPDAP_OS_LIBS}")
 endif(CPPDAP_BUILD_FUZZER)

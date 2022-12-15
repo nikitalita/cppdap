@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "cppdap",
+  "version-semver": "1.46.0",
+  "port-version": 0,
+  "description": "cppdap is a C++11 library SDK implementation of the Debug Adapter Protocol, providing an API for implementing a DAP client or server.",
+  "homepage": "https://github.com/google/cppdap",
+  "license": "Apache-2.0",
+  "supports": "windows & x64",
+  "dependencies": [
+    "nlohmann-json"
+  ],
+  "features": {
+    "tests": {
+      "description": "Build tests for cppdap.",
+      "dependencies": [
+        "gtest"
+      ]
+    }
+  },
+  "overrides": [
+    {
+      "name": "nlohmann-json",
+      "version": "3.7.0"
+    }
+  ],
+  "builtin-baseline": "4cb4a5c5ddcb9de0c83c85837ee6974c8333f032"
+}
