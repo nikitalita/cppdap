@@ -19,8 +19,12 @@
 #include "dap/serialization.h"
 #include "dap/types.h"
 
+// nlohmann package installs only a single header
+#ifdef CPPDAP_USE_EXTERNAL_NLOHMANN_JSON_PACKAGE
+#include <nlohmann/json.hpp>
+#else
 #include <nlohmann/json_fwd.hpp>
-
+#endif
 namespace dap {
 namespace json {
 
