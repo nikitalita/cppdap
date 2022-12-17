@@ -395,14 +395,10 @@ class Impl : public dap::Session {
     auto data = new uint8_t[typeinfo->size()];
     typeinfo->construct(data);
 
-    if (!d->field("body", [&](dap::Deserializer* d) {
-          return typeinfo->deserialize(d, data);
-        })) {
-      handlers.error("Failed to deserialize event '%s' body", event.c_str());
-      typeinfo->destruct(data);
-      delete[] data;
-      return {};
-    }
+    // "body" field in Event is an optional field.
+    d->field("body", [&](const dap::Deserializer* d) {
+      return typeinfo->deserialize(d, data);
+    });
 
     return [=] {
       handler(data);
