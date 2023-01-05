@@ -26,6 +26,17 @@
             "args": []
         },
         {
+            "name": "unittests (MSVC)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Debug/cppdap-unittests.exe",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "unittests (gdb)",
             "type": "cppdbg",
             "request": "launch",
