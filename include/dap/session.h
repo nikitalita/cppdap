@@ -20,6 +20,7 @@
 #include "traits.h"
 #include "typeinfo.h"
 #include "typeof.h"
+#include "protocol.h"
 
 #include <functional>
 
@@ -29,7 +30,7 @@ namespace dap {
 struct Request;
 struct Response;
 struct Event;
-
+struct Message;
 ////////////////////////////////////////////////////////////////////////////////
 // Error
 ////////////////////////////////////////////////////////////////////////////////
@@ -37,6 +38,8 @@ struct Event;
 // Error represents an error message in response to a DAP request.
 struct Error {
   Error() = default;
+  Error(const Message& msg);
+  Error(const Message& structuredError, const std::string& short_err);
   Error(const std::string& error);
   Error(const char* msg, ...);
 
@@ -44,6 +47,7 @@ struct Error {
   inline operator bool() const { return message.size() > 0; }
 
   std::string message;  // empty represents success.
+  optional<Message> structuredError;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

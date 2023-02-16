@@ -16,6 +16,8 @@
 #include "dap/io.h"
 #include "dap/protocol.h"
 
+#include "json_serializer.h"
+
 #include "chan.h"
 
 #include "gmock/gmock.h"
@@ -25,6 +27,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <regex>
 #include <thread>
 
 namespace dap {
@@ -328,6 +331,105 @@ TEST_F(SessionTest, RequestCallbackError) {
   // Check response was received correctly.
   ASSERT_EQ(got.error, true);
   ASSERT_EQ(got.error.message, "Oh noes!");
+}
+
+TEST_F(SessionTest, RequestCallbackErrorVarArgs) {
+  using ResponseCallback =
+      std::function<void(dap::ResponseOrError<dap::SetBreakpointsResponse>)>;
+  dap::Error encoded_err("Oh noes! The value was %s", "Error");
+  dap::string compare_string = "Oh noes! The value was Error";
+  ASSERT_EQ(encoded_err.message, compare_string);
+  server->registerHandler(
+      [&](const dap::SetBreakpointsRequest&, const ResponseCallback& callback) {
+        callback(encoded_err);
+      });
+
+  bind();
+
+  auto got = client->send(dap::SetBreakpointsRequest{}).get();
+
+  // Check response was received correctly.
+  ASSERT_EQ(got.error, true);
+  ASSERT_EQ(got.error.message, encoded_err.message);
+}
+
+
+TEST_F(SessionTest, SerializeDeserializeStructuredError) {
+  dap::ErrorResponse encoded;
+  dap::ErrorResponse decoded;
+  dap::Message encoded_msg;
+  encoded_msg.format = "hello";
+  dap::object encoded_vars =
+    {
+      {"a", dap::integer(1)}, 
+      {"b", dap::string("test")},
+      {"c", dap::number(1.5)}
+    };
+  encoded_msg.variables = encoded_vars;
+  encoded.error = encoded_msg;
+  dap::json::Serializer s;
+  ASSERT_TRUE(s.serialize(encoded));
+  dap::json::Deserializer d(s.dump());
+  ASSERT_TRUE(d.deserialize(&decoded));
+  ASSERT_TRUE(decoded.error.has_value());
+  dap::Message decoded_msg = decoded.error.value();
+  ASSERT_EQ(decoded_msg.format, encoded_msg.format);
+  ASSERT_TRUE(decoded_msg.variables.has_value());
+  dap::object decoded_vars = decoded_msg.variables.value();
+  ASSERT_EQ(encoded_vars.size(), decoded_vars.size());
+}
+
+TEST_F(SessionTest, RequestCallbackStructuredError) {
+  using ResponseCallback =
+      std::function<void(dap::ResponseOrError<dap::SetBreakpointsResponse>)>;
+  const std::string errPrefix =
+      "Oh noes: ";
+  const std::string errSuffix = "{obj}";
+  const std::string errFmt = errPrefix + errSuffix;
+  dap::string fooValue = "foo_value";
+  dap::string barValue = "1";
+  dap::object obj;
+  obj["foo"] = fooValue;
+  obj["bar"] = barValue;
+
+  server->registerHandler(
+      [&](const dap::SetBreakpointsRequest&, const ResponseCallback& callback) {
+        dap::Message errMsg;
+        errMsg.format = errFmt;
+        dap::object variables;
+        variables["obj"] = obj;
+        errMsg.variables = variables;
+        auto err = dap::Error(errMsg);
+        callback(err);
+      });
+
+  bind();
+
+  auto got = client->send(dap::SetBreakpointsRequest{}).get();
+
+  // Check response was received correctly.
+  ASSERT_EQ(got.error, true);
+  // Check if formatted string from Message was interpolated correctly
+  dap::json::Serializer s;
+  ASSERT_TRUE(s.serialize(obj));
+  auto dumped_iobj = got.error.message.substr(
+      errPrefix.size(), got.error.message.size() - errPrefix.size());
+  ASSERT_EQ(dumped_iobj, s.dump());
+  // Check if structuredError has what we expect
+  ASSERT_TRUE(got.error.structuredError.has_value());
+  auto structError = got.error.structuredError.value();
+  ASSERT_EQ(structError.format, errFmt);
+  ASSERT_TRUE(structError.variables.has_value());
+  auto variables = structError.variables.value();
+  auto anyobj = variables.at("obj");
+  ASSERT_TRUE(anyobj.is<dap::object>());
+  auto decoded_obj = anyobj.get<dap::object>();
+  auto foo = decoded_obj["foo"];
+  auto bar = decoded_obj["bar"];
+  ASSERT_TRUE(foo.is<dap::string>());
+  ASSERT_TRUE(bar.is<dap::string>());
+  ASSERT_EQ(foo.get<dap::string>(), fooValue);
+  ASSERT_EQ(bar.get<dap::string>(), barValue);
 }
 
 TEST_F(SessionTest, RequestCallbackSuccessAfterReturn) {

@@ -27,8 +27,10 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <regex>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -363,7 +365,17 @@ class Impl : public dap::Session {
                      fs->field("request_seq", sequence) &&
                      fs->field("success", dap::boolean(false)) &&
                      fs->field("command", command) &&
-                     fs->field("message", error.message);
+                     fs->field("message", error.message) &&
+                     // If there's a structured message, serialize into body
+                     (!error.structuredError.has_value() ||
+                      fs->field("body", [&](dap::Serializer* s) {
+                        dap::ErrorResponse resp;
+                        resp.error = error.structuredError;
+                        auto errTypeInfo =
+                            dap::TypeOf<dap::ErrorResponse>::type();
+                        auto result = errTypeInfo->serialize(s, &resp);
+                        return result;
+                      }));
             });
             send(s.dump());
 
@@ -456,7 +468,13 @@ class Impl : public dap::Session {
         handlers.error("Failed to deserialize message");
         return;
       }
-      auto error = dap::Error("%s", message.c_str());
+      dap::Error error;
+      dap::ErrorResponse strError;
+      if (d->field("body", &strError) && strError.error.has_value()) {
+        error = dap::Error(strError.error.value(), message);
+      } else {
+        error = dap::Error("%s", message.c_str());
+      }
       handler(nullptr, &error);
     }
   }
@@ -487,7 +505,7 @@ class Impl : public dap::Session {
 
 namespace dap {
 
-Error::Error(const std::string& message) : message(message) {}
+Error::Error(const std::string& error) : message(error) {}
 
 Error::Error(const char* msg, ...) {
   char buf[2048];
@@ -497,6 +515,41 @@ Error::Error(const char* msg, ...) {
   va_end(vararg);
   message = buf;
 }
+
+static std::string parseFormattedMessageString(const std::string& format,
+                                               dap::object Variables) {
+  // Mirrors std::format syntax, but we are on C++11
+  std::string rstring = format;
+  for (auto& kvp : Variables) {
+    auto val = kvp.second;
+    dap::json::Serializer s;
+    std::string valString;
+    if (s.serialize(val)) {
+      valString = s.dump();
+    } else {
+      continue;
+    }
+    std::string regex = "\\{" + kvp.first + "\\}";
+    auto re = std::regex(regex);
+    rstring = std::regex_replace(rstring, re, valString);
+    continue;
+  }
+  return rstring;
+}
+
+dap::Error::Error(const dap::Message& msg)
+    : structuredError(msg),
+      message(
+          msg.variables.has_value()
+              ? parseFormattedMessageString(msg.format, msg.variables.value())
+              : msg.format) {}
+
+dap::Error::Error(const dap::Message& message, const std::string& short_err)
+    : structuredError(message), message(short_err) {}
+// TODO: Figure out what the syntax of this is supposed to be for construction
+// delegation
+// dap::Error::Error(const dap::Message& message, const char* short_msg,
+// ...vas): Error(short_msg, va_list){}
 
 Session::~Session() = default;
 

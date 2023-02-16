@@ -95,6 +95,11 @@ using array = std::vector<T>;
 // object defaults to an empty map.
 using object = std::unordered_map<string, any>;
 
+// dict is a map of string to items of type T.
+// dict defaults to an empty map.
+template <typename T>
+using dict = std::unordered_map<string, T>;
+
 // null represents no value.
 // null is used by any to check for no-value.
 using null = std::nullptr_t;
