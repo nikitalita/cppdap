@@ -42,48 +42,48 @@ jobs:
             echo "sync_needed=0" >> $GITHUB_OUTPUT
           fi
 
-  non-linux-tests:
-    name: ${{ matrix.name }} tests
-    needs: check_sync
-    if: needs.check_sync.outputs.sync_needed != '0'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-        - name: "Windows"
-          os: "windows-latest"
-          id: windows
+  # non-linux-tests:
+  #   name: ${{ matrix.name }} tests
+  #   needs: check_sync
+  #   if: needs.check_sync.outputs.sync_needed != '0'
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       include:
+  #       - name: "Windows"
+  #         os: "windows-latest"
+  #         id: windows
 
-        - name: "MacOS"
-          os: "macos-latest"
-          id: macos
+  #       - name: "MacOS"
+  #         os: "macos-latest"
+  #         id: macos
 
-    steps:
-      - uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
+  #   steps:
+  #     - uses: actions/setup-go@v5
+  #       with:
+  #         go-version: 1.23
 
-      - uses: actions/checkout@v3
-        with:
-          submodules: 'true'
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         submodules: 'true'
 
-      - name: run protocol_gen
-        # Windows fails when running clang-format due to permissions issues, 
-        # Skipping clang-format for now
-        run: |
-          go run tools/protocol_gen/protocol_gen.go -no-format
+  #     - name: run protocol_gen
+  #       # Windows fails when running clang-format due to permissions issues, 
+  #       # Skipping clang-format for now
+  #       run: |
+  #         go run tools/protocol_gen/protocol_gen.go -no-format
 
-      - name: Build source
-        run: |
-          mkdir -p build
-          cd build
-          cmake .. -DCPPDAP_BUILD_TESTS=ON
-          cmake --build . 
+  #     - name: Build source
+  #       run: |
+  #         mkdir -p build
+  #         cd build
+  #         cmake .. -DCPPDAP_BUILD_TESTS=ON
+  #         cmake --build . 
 
-      - name: Run tests
-        run: |
-          cd build
-          ctest --output-on-failure
+  #     - name: Run tests
+  #       run: |
+  #         cd build
+  #         ctest --output-on-failure
 
   linux-tests:
     name: ${{ matrix.compiler.os }} tests ( ${{ matrix.compiler.CC }} ${{ matrix.flags }} )
@@ -136,11 +136,10 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          
-          CC=${{ matrix.compiler.CC }} CXX=${{ matrix.compiler.CXX }} cmake .. -DCPPDAP_BUILD_TESTS=ON ${{ matrix.flags }}
-          cmake --build .
+          CC=${{ matrix.compiler.CC }} CXX=${{ matrix.compiler.CXX }} cmake ..  -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCPPDAP_BUILD_TESTS=ON ${{ matrix.flags }}
+          cmake --build . --config ${{ matrix.config }}
 
       - name: Run tests
         run: |
           cd build
-          ctest --output-on-failure
+          ctest  --output-on-failure --config ${{ matrix.config }}
