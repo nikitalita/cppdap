@@ -1,3 +1,4 @@
+name: Check protocol sync
 on:
   # run every day at 00:00 UTC
   schedule:
@@ -8,10 +9,10 @@ on:
 
 jobs:
   check_sync:
-    name: ci
+    name: Protocol sync check
     runs-on: ubuntu-latest
     outputs:
-      sync_needed: ${{ steps.run_sync.outputs.sync_needed }}
+      sync_needed: ${{ steps.check_sync.outputs.sync_needed }}
     # env:
     #   DEBIAN_FRONTEND: noninteractive
 
@@ -28,13 +29,16 @@ jobs:
         with:
           submodules: 'true'
 
-      - id: run_sync
-        name: run sync
+      - name: run sync
         run: |
           go run tools/protocol_gen/protocol_gen.go
+
+      - id: check_sync
+        name: check sync
+        continue-on-error: true
+        run: |
           set +e
-          SYNC_NEEDED=$(git diff --exit-code)
-          echo "sync_needed=$SYNC_NEEDED" >> $GITHUB_OUTPUT
+          echo "sync_needed=$(git diff --exit-code)" >> $GITHUB_OUTPUT
 
   non-linux-tests:
     name: ci
