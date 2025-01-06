@@ -24,6 +24,7 @@ jobs:
           submodules: 'true'
 
       - id: check_sync
+        shell: bash
         name: run protocol_gen
         run: |
           set +e
@@ -76,7 +77,6 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          # set the generator to Ninja
           cmake .. -DCPPDAP_BUILD_TESTS=ON
           cmake --build . 
 
@@ -86,26 +86,36 @@ jobs:
           ctest --output-on-failure
 
   linux-tests:
-    name: Linux tests ( ${{ matrix.compiler.CC }} ${{ matrix.flags }} )
+    name: ${{ matrix.compiler.os }} tests ( ${{ matrix.compiler.CC }} ${{ matrix.flags }} )
     needs: check_sync
     if: needs.check_sync.outputs.sync_needed != '0'
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.compiler.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-22.04"] #[ubuntu-22.04, ubuntu-24.04]
-        compiler: [ {CXX: g++, CC: gcc}, {CXX: clang++, CC: clang} ]
+        compiler: [  
+          { os: "windows-latest", CXX: cl, CC: cl }, 
+          { os: "ubuntu-22.04", CXX: g++, CC: gcc },  
+          { os: "ubuntu-22.04", CXX: clang++, CC: clang }, 
+          { os: "macos-latest", CXX: clang++, CC: clang } 
+          ]
         flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON", "-DCPPDAP_MSAN=ON"]
+        config: [ "Debug", "Release" ]
         exclude:
-          - compiler: {CXX: g++, CC: gcc}
-            flags: "-DCPPDAP_MSAN=ON"
-
+          - config: "Release"
+            flags: ["-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON", "-DCPPDAP_MSAN=ON"]
+          - compiler: { os: "windows-latest", CXX: cl, CC: cl }
+            flags: ["-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON", "-DCPPDAP_MSAN=ON"]
+          - compiler: { os: "macos-latest", CXX: clang++, CC: clang } 
+            flags: ["-DCPPDAP_TSAN=ON", "-DCPPDAP_MSAN=ON"]
+          - compiler: { os: "ubuntu-22.04", CXX: g++, CC: gcc }
+            flags: ["-DCPPDAP_MSAN=ON"]
     env:
       DEBIAN_FRONTEND: noninteractive
 
     steps:
       - name: Install packages
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.compiler.os, 'ubuntu')
         run: |
           sudo apt-get -q -y update
           sudo apt-get -q -y install build-essential cmake git clang
@@ -126,6 +136,7 @@ jobs:
         run: |
           mkdir -p build
           cd build
+          
           CC=${{ matrix.compiler.CC }} CXX=${{ matrix.compiler.CXX }} cmake .. -DCPPDAP_BUILD_TESTS=ON ${{ matrix.flags }}
           cmake --build .
 
