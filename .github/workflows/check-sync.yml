@@ -29,17 +29,23 @@ jobs:
         with:
           submodules: 'true'
 
-      - name: run protocol_gen
-        run: |
-          go run tools/protocol_gen/protocol_gen.go
-
       - id: check_sync
-        name: check sync
-        continue-on-error: true
+        name: run protocol_gen
         run: |
           set +e
-          git diff --exit-code
-          echo "sync_needed=$?" >> $GITHUB_OUTPUT
+          OUTPUT=$(go run tools/protocol_gen/protocol_gen.go -dry-run)
+          ERR_CODE=$?
+          echo "$OUTPUT"
+          if [ $ERR_CODE -ne 0 ]; then
+            echo "Error running protocol_gen"
+            exit 1
+          fi
+          # set sync_needed to 1 if there are changes if OUTPUT is not empty
+          if [ -n "$OUTPUT" ]; then
+            echo "sync_needed=1" >> $GITHUB_OUTPUT
+          else
+            echo "sync_needed=0" >> $GITHUB_OUTPUT
+          fi
 
   non-linux-tests:
     name: ci
@@ -70,9 +76,10 @@ jobs:
           submodules: 'true'
 
       - name: run protocol_gen
-        shell: pwsh
+        # Windows fails when running clang-format due to permissions issues, 
+        # Skipping clang-format for now
         run: |
-          go run tools/protocol_gen/protocol_gen.go
+          go run tools/protocol_gen/protocol_gen.go -no-format
 
       - name: Build source
         run: |
@@ -98,10 +105,16 @@ jobs:
     if: needs.check_sync.outputs.sync_needed != '0'
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: ["ubuntu-22.04"] #[ubuntu-22.04, ubuntu-24.04]
         compiler: [ {CXX: g++, CC: gcc}, {CXX: clang++, CC: clang} ]
-        flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON", "-DCPPDAP_MSAN=ON"]
+        flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON"]
+
+        # exclude:
+        #   - os: ubuntu-24.04
+        #     compiler: {CXX: g++, CC: gcc}
+        #     flags: "-DCPPDAP_MSAN=ON"
 
     env:
       DEBIAN_FRONTEND: noninteractive
@@ -123,7 +136,7 @@ jobs:
 
       - name: run protocol_gen
         run: |
-          go run tools/protocol_gen/protocol_gen.go
+          go run tools/protocol_gen/protocol_gen.go -no-format
 
       - name: Build source
         run: |

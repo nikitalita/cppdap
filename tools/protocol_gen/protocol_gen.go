@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"path"
 	"reflect"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -110,8 +111,11 @@ namespace dap {
 )
 
 func main() {
+	// bool flag to skip clang-format
+	noFormat := flag.Bool("no-format", false, "Skip clang-format")
+	dryRun := flag.Bool("dry-run", false, "Dry run")
 	flag.Parse()
-	if err := run(); err != nil {
+	if err := run(*noFormat, *dryRun); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
@@ -781,7 +785,7 @@ type cppFiles map[cppTargetFile]*os.File
 // run() loads and parses the package and protocol JSON files, generates the
 // protocol types from the schema, writes the types to the C++ files, then runs
 // clang-format on each.
-func run() error {
+func run(noFormat bool, dryRun bool) error {
 	pkg := struct {
 		Version string `json:"version"`
 	}{}
@@ -795,6 +799,23 @@ func run() error {
 	}
 
 	hPath, cppPaths, cMakeListsPath, fuzzerhPath, fuzzerDictPath := outputPaths()
+	current_version, err := getCurrentCMakePackageVersion(cMakeListsPath)
+	if err != nil {
+		return fmt.Errorf("Failed to get current package version: %w", err)
+	}
+
+	if current_version != pkg.Version {
+		if (dryRun){
+			fmt.Printf("Would update protocol version from %v to %v\n", current_version, pkg.Version)
+		} else {
+			fmt.Printf("Updating protocol version from %v to %v\n", current_version, pkg.Version)
+		}
+	}
+	if (dryRun) {
+		return nil
+	}
+
+
 	if err := emitFiles(&protocol, hPath, cppPaths, fuzzerhPath, fuzzerDictPath, pkg.Version); err != nil {
 		return fmt.Errorf("Failed to emit files: %w", err)
 	}
@@ -803,6 +824,9 @@ func run() error {
 		return fmt.Errorf("Failed to update CMakeLists.txt: %w", err)
 	}
 
+	if noFormat {
+		return nil
+	}
 	if clangfmt, err := exec.LookPath("clang-format"); err == nil {
 		if out, err := exec.Command(clangfmt, "-i", hPath).CombinedOutput(); err != nil {
 			return fmt.Errorf("Failed to run clang-format on '%v':\n%v\n%w", hPath, string(out), err)
@@ -831,12 +855,28 @@ func updateCMakePackageVersion(cMakeListsPath string, version string) error {
 	lines := strings.Split(string(text), "\n")
 	for i, line := range lines {
 		if strings.Contains(line, "project(cppdap") {
+			if !strings.Contains(line, "project(cppdap VERSION") || !strings.Contains(line, ")") {
+				return fmt.Errorf("CMakeLists.txt: Project statement should be one line only and start with \"VERSION\"!")
+			}
 			lines[i] = "project(cppdap VERSION " + version + " LANGUAGES CXX C)"
 			break
 		}
 	}
 	output := strings.Join(lines, "\n")
 	return os.WriteFile(cMakeListsPath, []byte(output), 0644)
+}
+
+func getCurrentCMakePackageVersion(cMakeListsPath string) (string, error) {
+	text, err := os.ReadFile(cMakeListsPath)
+	if err != nil {
+		return "", err
+	}
+	regex := regexp.MustCompile(`project\(cppdap\s*(?:\n*)?\s*VERSION\s*(?:\n*)?\s*([\d\w_\.]+)`)
+	matches := regex.FindStringSubmatch(string(text))
+	if len(matches) > 1 {
+		return matches[1], nil
+	}
+	return "", fmt.Errorf("Failed to find package version in CMakeLists.txt")
 }
 
 // emitFiles() opens each of the C++ files, generates the cppType definitions
