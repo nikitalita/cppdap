@@ -49,6 +49,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        config: ["Debug", "Release"]
         include:
         - name: "Windows"
           os: "windows-latest"
@@ -77,13 +78,13 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake .. -DCPPDAP_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
-          cmake --build .  --config Debug
+          cmake .. -DCPPDAP_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+          cmake --build .  --config ${{ matrix.config }}
 
       - name: Run tests
         run: |
           cd build
-          ctest --output-on-failure -C Debug
+          ctest --output-on-failure -C ${{ matrix.config }}
 
   linux-tests:
     name: Linux tests ( ${{ matrix.compiler.CC }} ${{ matrix.flags }} )
