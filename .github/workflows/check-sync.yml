@@ -87,7 +87,7 @@ jobs:
           cd build
           cmake .. -DCPPDAP_BUILD_TESTS=ON
           cmake --build .
-          DESTDIR=../out cmake --install .
+          cmake --install . --prefix ../out/usr/local/
 
       - name: Run tests
         run: |
@@ -144,7 +144,7 @@ jobs:
           cd build
           CC=${{ matrix.compiler.CC }} CXX=${{ matrix.compiler.CXX }} cmake .. -DCPPDAP_BUILD_TESTS=ON ${{ matrix.flags }}
           cmake --build .
-          DESTDIR=../out cmake --install .
+          cmake --install . --prefix ../out/usr/local/
 
       - name: Run tests
         run: |
