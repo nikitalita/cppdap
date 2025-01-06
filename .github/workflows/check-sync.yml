@@ -29,7 +29,7 @@ jobs:
         with:
           submodules: 'true'
 
-      - name: run sync
+      - name: run protocol_gen
         run: |
           go run tools/protocol_gen/protocol_gen.go
 
@@ -38,7 +38,8 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          echo "sync_needed=$(git diff --exit-code)" >> $GITHUB_OUTPUT
+          git diff --exit-code
+          echo "sync_needed=$?" >> $GITHUB_OUTPUT
 
   non-linux-tests:
     name: ci
@@ -51,61 +52,15 @@ jobs:
         - name: "Windows"
           os: "windows-latest"
           id: windows
-          compiler: [ {CXX: cl, CC: cl} ]
-          flags: ""
 
         - name: "MacOS"
           os: "macos-latest"
           id: macos
-          compiler: [ {CXX: clang++, CC: clang} ]
-          flags: ""
-
-        # - name: "Linux (GCC)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: g++, CC: gcc} ]
-        #   flags: ""
-        
-        # - name: "Linux (GCC ASAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: g++, CC: gcc} ]
-        #   flags: "-DCPPDAP_ASAN=ON"
-
-        # - name: "Linux (GCC ASAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: g++, CC: gcc} ]
-        #   flags: "-DCPPDAP_ASAN=ON"
-        
-        # - name: "Linux (GCC TSAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: g++, CC: gcc} ]
-        #   flags: "-DCPPDAP_TSAN=ON"
-
-        # - name: "Linux (Clang)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: clang++, CC: clang} ]
-        #   flags: ""
-
-        # - name: "Linux (Clang ASAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: clang++, CC: clang} ]
-        #   flags: "-DCPPDAP_ASAN=ON"
-
-        # - name: "Linux (Clang ASAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: clang++, CC: clang} ]
-        #   flags: "-DCPPDAP_ASAN=ON"
-
 
     env:
       DEBIAN_FRONTEND: noninteractive
 
     steps:
-      - name: Install packages
-        if: startsWith(matrix.os, 'ubuntu')
-        run: |
-          apt-get -q -y update
-          apt-get -q -y install build-essential cmake git clang
-
       - uses: actions/setup-go@v5
         with:
           go-version: 1.23
@@ -114,8 +69,8 @@ jobs:
         with:
           submodules: 'true'
 
-      - id: run_sync
-        name: run sync
+      - name: run protocol_gen
+        shell: pwsh
         run: |
           go run tools/protocol_gen/protocol_gen.go
 
@@ -147,54 +102,6 @@ jobs:
         os: ["ubuntu-22.04"] #[ubuntu-22.04, ubuntu-24.04]
         compiler: [ {CXX: g++, CC: gcc}, {CXX: clang++, CC: clang} ]
         flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON", "-DCPPDAP_MSAN=ON"]
-        # include:
-        # - name: "Windows"
-        #   os: "windows-latest"
-        #   id: windows
-        #   compiler: [ {CXX: cl, CC: cl} ]
-        #   flags: ""
-
-        # - name: "MacOS"
-        #   os: "macos-latest"
-        #   id: macos
-        #   compiler: [ {CXX: clang++, CC: clang} ]
-        #   flags: ""
-
-        # - name: "Linux (GCC)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: g++, CC: gcc} ]
-        #   flags: ""
-        
-        # - name: "Linux (GCC ASAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: g++, CC: gcc} ]
-        #   flags: "-DCPPDAP_ASAN=ON"
-
-        # - name: "Linux (GCC ASAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: g++, CC: gcc} ]
-        #   flags: "-DCPPDAP_ASAN=ON"
-        
-        # - name: "Linux (GCC TSAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: g++, CC: gcc} ]
-        #   flags: "-DCPPDAP_TSAN=ON"
-
-        # - name: "Linux (Clang)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: clang++, CC: clang} ]
-        #   flags: ""
-
-        # - name: "Linux (Clang ASAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: clang++, CC: clang} ]
-        #   flags: "-DCPPDAP_ASAN=ON"
-
-        # - name: "Linux (Clang ASAN)"
-        #   os: "ubuntu-22.04"
-        #   compiler: [ {CXX: clang++, CC: clang} ]
-        #   flags: "-DCPPDAP_ASAN=ON"
-
 
     env:
       DEBIAN_FRONTEND: noninteractive
@@ -203,8 +110,8 @@ jobs:
       - name: Install packages
         if: startsWith(matrix.os, 'ubuntu')
         run: |
-          apt-get -q -y update
-          apt-get -q -y install build-essential cmake git clang
+          sudo apt-get -q -y update
+          sudo apt-get -q -y install build-essential cmake git clang
 
       - uses: actions/setup-go@v5
         with:
@@ -214,8 +121,7 @@ jobs:
         with:
           submodules: 'true'
 
-      - id: run_sync
-        name: run sync
+      - name: run protocol_gen
         run: |
           go run tools/protocol_gen/protocol_gen.go
 
@@ -223,7 +129,7 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          CC=${{ matrix.compiler.CC }} CXX=${{ matrix.compiler.CXX }} cmake .. -DCPPDAP_BUILD_TESTS=ON
+          CC=${{ matrix.compiler.CC }} CXX=${{ matrix.compiler.CXX }} cmake .. -DCPPDAP_BUILD_TESTS=ON ${{ matrix.flags }}
           cmake --build .
           DESTDIR=../out cmake --install .
 
