@@ -13,14 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sync_needed: ${{ steps.check_sync.outputs.sync_needed }}
-    # env:
-    #   DEBIAN_FRONTEND: noninteractive
 
     steps:
-      # - name: Install packages
-      #   run: |
-      #     apt-get -q -y update
-      #     apt-get -q -y install build-essential cmake git clang
       - uses: actions/setup-go@v5
         with:
           go-version: 1.23
@@ -48,7 +42,7 @@ jobs:
           fi
 
   non-linux-tests:
-    name: ci
+    name: ${{ matrix.name }} tests
     needs: check_sync
     if: needs.check_sync.outputs.sync_needed != '0'
     runs-on: ${{ matrix.os }}
@@ -62,9 +56,6 @@ jobs:
         - name: "MacOS"
           os: "macos-latest"
           id: macos
-
-    env:
-      DEBIAN_FRONTEND: noninteractive
 
     steps:
       - uses: actions/setup-go@v5
@@ -85,22 +76,17 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake .. -DCPPDAP_BUILD_TESTS=ON
-          cmake --build .
-          cmake --install . --prefix ../out/usr/local/
+          # set the generator to Ninja
+          cmake .. -G Ninja -DCPPDAP_BUILD_TESTS=ON
+          cmake --build . 
 
       - name: Run tests
         run: |
           cd build
           ctest --output-on-failure
 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: CXXdap
-          path: out/usr/local/
-
   linux-tests:
-    name: ci
+    name: Linux tests ( ${{ matrix.compiler.CC }} ${{ matrix.flags }} )
     needs: check_sync
     if: needs.check_sync.outputs.sync_needed != '0'
     runs-on: ${{ matrix.os }}
@@ -109,12 +95,10 @@ jobs:
       matrix:
         os: ["ubuntu-22.04"] #[ubuntu-22.04, ubuntu-24.04]
         compiler: [ {CXX: g++, CC: gcc}, {CXX: clang++, CC: clang} ]
-        flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON"]
-
-        # exclude:
-        #   - os: ubuntu-24.04
-        #     compiler: {CXX: g++, CC: gcc}
-        #     flags: "-DCPPDAP_MSAN=ON"
+        flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON", "-DCPPDAP_MSAN=ON"]
+        exclude:
+          - compiler: {CXX: g++, CC: gcc}
+            flags: "-DCPPDAP_MSAN=ON"
 
     env:
       DEBIAN_FRONTEND: noninteractive
@@ -144,14 +128,8 @@ jobs:
           cd build
           CC=${{ matrix.compiler.CC }} CXX=${{ matrix.compiler.CXX }} cmake .. -DCPPDAP_BUILD_TESTS=ON ${{ matrix.flags }}
           cmake --build .
-          cmake --install . --prefix ../out/usr/local/
 
       - name: Run tests
         run: |
           cd build
           ctest --output-on-failure
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: CXXdap
-          path: out/usr/local/
