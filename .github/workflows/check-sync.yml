@@ -43,21 +43,14 @@ jobs:
           fi
 
   non-linux-tests:
-    name: ${{ matrix.name }} tests ( ${{ matrix.config }} )
+    name: ${{ matrix.os }} tests ( ${{ matrix.config }} )
     needs: check_sync
     if: needs.check_sync.outputs.sync_needed != '0'
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}-latest
     strategy:
       matrix:
+        os: ["macos", "windows"]
         config: ["Debug", "Release"]
-        include:
-          - name: "Windows"
-            os: "windows-latest"
-            id: windows
-          - name: "MacOS"
-            os: "macos-latest"
-            id: macos
-
     steps:
       - uses: actions/setup-go@v5
         with:
