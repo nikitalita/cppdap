@@ -1,0 +1,237 @@
+on:
+  # run every day at 00:00 UTC
+  schedule:
+    - cron: '0 0 * * *'
+  # also allow manual runs
+  workflow_dispatch:
+
+
+jobs:
+  check_sync:
+    name: ci
+    runs-on: ubuntu-latest
+    outputs:
+      sync_needed: ${{ steps.run_sync.outputs.sync_needed }}
+
+    container:
+      image: ubuntu:22.04
+
+
+    # don't run pull requests from local branches twice
+    # if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install packages
+        run: |
+          apt-get -q -y update
+          apt-get -q -y install build-essential cmake git clang
+      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - id: run_sync
+        name: run sync
+        run: |
+          go run tools/protocol_gen/protocol_gen.go
+          git --version
+          SYNC_NEEDED=$(git diff --exit-code)
+          echo "sync_needed=$SYNC_NEEDED" >> $GITHUB_OUTPUT
+
+  non-linux-tests:
+    name: ci
+    needs: check_sync
+    if: needs.check_sync.outputs.sync_needed != '0'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+        - name: "Windows"
+          os: "windows-latest"
+          id: windows
+          compiler: [ {CXX: cl, CC: cl} ]
+          flags: ""
+
+        - name: "MacOS"
+          os: "macos-latest"
+          id: macos
+          compiler: [ {CXX: clang++, CC: clang} ]
+          flags: ""
+
+        # - name: "Linux (GCC)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: g++, CC: gcc} ]
+        #   flags: ""
+        
+        # - name: "Linux (GCC ASAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: g++, CC: gcc} ]
+        #   flags: "-DCPPDAP_ASAN=ON"
+
+        # - name: "Linux (GCC ASAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: g++, CC: gcc} ]
+        #   flags: "-DCPPDAP_ASAN=ON"
+        
+        # - name: "Linux (GCC TSAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: g++, CC: gcc} ]
+        #   flags: "-DCPPDAP_TSAN=ON"
+
+        # - name: "Linux (Clang)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: clang++, CC: clang} ]
+        #   flags: ""
+
+        # - name: "Linux (Clang ASAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: clang++, CC: clang} ]
+        #   flags: "-DCPPDAP_ASAN=ON"
+
+        # - name: "Linux (Clang ASAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: clang++, CC: clang} ]
+        #   flags: "-DCPPDAP_ASAN=ON"
+
+
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install packages
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          apt-get -q -y update
+          apt-get -q -y install build-essential cmake git clang
+
+      - uses: actions/setup-go@v5
+
+
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - id: run_sync
+        name: run sync
+        run: |
+          go run tools/protocol_gen/protocol_gen.go
+
+      - name: Build source
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DCPPDAP_BUILD_TESTS=ON
+          cmake --build .
+          DESTDIR=../out cmake --install .
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: CXXdap
+          path: out/usr/local/
+
+  linux-tests:
+    name: ci
+    needs: check_sync
+    if: needs.check_sync.outputs.sync_needed != '0'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-22.04"] #[ubuntu-22.04, ubuntu-24.04]
+        compiler: [ {CXX: g++, CC: gcc}, {CXX: clang++, CC: clang} ]
+        flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON", "-DCPPDAP_MSAN=ON"]
+        # include:
+        # - name: "Windows"
+        #   os: "windows-latest"
+        #   id: windows
+        #   compiler: [ {CXX: cl, CC: cl} ]
+        #   flags: ""
+
+        # - name: "MacOS"
+        #   os: "macos-latest"
+        #   id: macos
+        #   compiler: [ {CXX: clang++, CC: clang} ]
+        #   flags: ""
+
+        # - name: "Linux (GCC)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: g++, CC: gcc} ]
+        #   flags: ""
+        
+        # - name: "Linux (GCC ASAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: g++, CC: gcc} ]
+        #   flags: "-DCPPDAP_ASAN=ON"
+
+        # - name: "Linux (GCC ASAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: g++, CC: gcc} ]
+        #   flags: "-DCPPDAP_ASAN=ON"
+        
+        # - name: "Linux (GCC TSAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: g++, CC: gcc} ]
+        #   flags: "-DCPPDAP_TSAN=ON"
+
+        # - name: "Linux (Clang)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: clang++, CC: clang} ]
+        #   flags: ""
+
+        # - name: "Linux (Clang ASAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: clang++, CC: clang} ]
+        #   flags: "-DCPPDAP_ASAN=ON"
+
+        # - name: "Linux (Clang ASAN)"
+        #   os: "ubuntu-22.04"
+        #   compiler: [ {CXX: clang++, CC: clang} ]
+        #   flags: "-DCPPDAP_ASAN=ON"
+
+
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install packages
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          apt-get -q -y update
+          apt-get -q -y install build-essential cmake git clang
+
+      - uses: actions/setup-go@v5
+
+
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - id: run_sync
+        name: run sync
+        run: |
+          go run tools/protocol_gen/protocol_gen.go
+
+      - name: Build source
+        run: |
+          mkdir -p build
+          cd build
+          CC=${{ matrix.compiler.CC }} CXX=${{ matrix.compiler.CXX }} cmake .. -DCPPDAP_BUILD_TESTS=ON
+          cmake --build .
+          DESTDIR=../out cmake --install .
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: CXXdap
+          path: out/usr/local/

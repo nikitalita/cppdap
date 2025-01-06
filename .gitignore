@@ -4,3 +4,6 @@ fuzz/logs
 .vs/
 .vscode/settings.json
 CMakeSettings.json
+tools/protocol_gen/protocol_gen
+tools/protocol_gen/protocol_gen.exe
+.cache/
