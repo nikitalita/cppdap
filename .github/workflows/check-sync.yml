@@ -91,9 +91,9 @@ jobs:
         sanitizer: ["", "asan", "tsan"]
         exclude:
           - config: "Release"
-            flags: "asan"
+            sanitizer: "asan"
           - config: "Release"
-            flags: "tsan"
+            sanitizer: "tsan"
     env:
       DEBIAN_FRONTEND: noninteractive
 
