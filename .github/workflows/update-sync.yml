@@ -3,6 +3,16 @@ on:
   workflow_dispatch:
 
 jobs:
+  check_ref:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that ref is "main"
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "This workflow can only be run on the main branch."
+            exit 1
+          fi
+
   try_sync:
     uses: ./.github/workflows/check-sync.yml
 
