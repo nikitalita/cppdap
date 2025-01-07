@@ -74,10 +74,9 @@ jobs:
           cmake --build .  --config ${{ matrix.config }}
 
       - name: Run tests
-        shell: bash
         run: |
           cd build
-          ./cppdap-unittests
+          ctest --output-on-failure -C ${{ matrix.config }}
 
   linux-tests:
     name: Linux tests ( ${{ matrix.config }} ${{ matrix.compiler.CC }} ${{ matrix.flags }} )
