@@ -54,6 +54,6 @@ runs:
         cmake --build . --config ${{ inputs.config }}
     - name: Install
       shell: bash
-      if: ${{ inputs.install }}
+      if: inputs.install == 'true'
       run: |
         cmake --install ./build --config ${{ inputs.config }} --prefix ${{ inputs.install_prefix }}

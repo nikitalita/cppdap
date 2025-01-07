@@ -83,5 +83,5 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           # if flags are not empty, append them to the name
-          name: cppdap-Linux-${{ matrix.compiler.C }}-${{ matrix.config }}${{ matrix.sanitizer != '' && '-' || '' }}${{ matrix.sanitizer }}
+          name: cppdap-Linux-${{ matrix.compiler.CC }}-${{ matrix.config }}${{ matrix.sanitizer != '' && '-' || '' }}${{ matrix.sanitizer }}
           path: out/usr/local/
