@@ -45,9 +45,6 @@ runs:
           elif "${COMPILER}" == "gcc"; then
             CXX=g++
           fi
-          # export CC
-          export CXX
-          export CC
         fi
         mkdir -p build
         cd build
