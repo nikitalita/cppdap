@@ -1,0 +1,135 @@
+name: Check protocol sync
+on:
+  # run every Sunday at 00:00 UTC
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  check_sync:
+    name: Protocol sync check
+    runs-on: ubuntu-latest
+    outputs:
+      sync_needed: ${{ steps.check_sync.outputs.sync_needed }}
+
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - id: check_sync
+        shell: bash
+        name: run protocol_gen
+        run: |
+          set +e
+          OUTPUT=$(go run tools/protocol_gen/protocol_gen.go -dry-run)
+          ERR_CODE=$?
+          echo "$OUTPUT"
+          if [ $ERR_CODE -ne 0 ]; then
+            echo "Error running protocol_gen"
+            exit 1
+          fi
+          # set sync_needed to 1 if there are changes if OUTPUT is not empty
+          if [ -n "$OUTPUT" ]; then
+            echo "sync_needed=1" >> $GITHUB_OUTPUT
+          else
+            echo "sync_needed=0" >> $GITHUB_OUTPUT
+          fi
+
+  non-linux-tests:
+    name: ${{ matrix.os.name }} tests ( ${{ matrix.config }} )
+    needs: check_sync
+    if: needs.check_sync.outputs.sync_needed != '0'
+    runs-on: ${{ matrix.os.runner }}
+    strategy:
+      matrix:
+        os: [{ name: "MacOS", runner: "macos-latest"}, { name: "Windows", runner: "windows-latest"}]
+        config: ["Debug", "Release"]
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - name: run protocol_gen
+        # Windows fails when running clang-format due to permissions issues, 
+        # Skipping clang-format for now
+        run: |
+          go run tools/protocol_gen/protocol_gen.go -no-format
+
+      - name: Build source
+        uses: ./.github/actions/build-cppdap
+        with:
+          config: ${{ matrix.config }}
+          tests: true
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure -C ${{ matrix.config }}
+
+  linux-tests:
+    name: Linux tests ( ${{ matrix.config }} ${{ matrix.compiler.CC }} ${{ matrix.sanitizer }} )
+    needs: check_sync
+    if: needs.check_sync.outputs.sync_needed != '0'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-22.04"]
+        config: ["Debug", "Release"]
+        compiler: [ {CXX: g++, CC: gcc}, {CXX: clang++, CC: clang} ]
+        sanitizer: ["", "asan", "tsan"]
+        exclude:
+          - config: "Release"
+            sanitizer: "asan"
+          - config: "Release"
+            sanitizer: "tsan"
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install packages
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get -q -y update
+          sudo apt-get -q -y install build-essential cmake git clang
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - name: run protocol_gen
+        run: |
+          go run tools/protocol_gen/protocol_gen.go -no-format
+
+
+      - name: Build source
+        uses: ./.github/actions/build-cppdap
+        with:
+          msan: ${{ matrix.sanitizer == 'msan' }}
+          tsan: ${{ matrix.sanitizer == 'tsan' }}
+          asan: ${{ matrix.sanitizer == 'asan' }}
+          config: ${{ matrix.config }}
+          tests: true
+          fuzzer: false
+          CC: ${{ matrix.compiler.CC }}
+          CXX: ${{ matrix.compiler.CXX }}
+  
+      - name: Run tests
+        shell: bash
+        run: |
+          cd build
+          ./cppdap-unittests
