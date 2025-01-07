@@ -1,0 +1,55 @@
+name: Build cppdap
+description: builds the cppdap project
+inputs:
+  msan:
+    description: 'Enable Memory Sanitizer'
+    required: false
+    default: false
+  tsan:
+    description: 'Enable Thread Sanitizer'
+    required: false
+    default: false
+  asan:
+    description: 'Enable Address Sanitizer'
+    required: false
+    default: false
+  config:
+    description: 'Build configuration'
+    required: false
+    default: false
+  tests:
+    description: 'Build tests'
+    required: false
+    default: false
+  fuzzer:
+    description: 'Build fuzzer'
+    required: false
+    default: false
+  compiler:
+    description: 'Compiler to use'
+    required: false
+    default: ''
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build source
+      shell: bash
+      run: |
+        COMPILER=${{ inputs.compiler }}
+        if [ -n "$COMPILER" ]; then
+          CC=$COMPILER
+          CXX=$COMPILER
+          if "${COMPILER}" == "clang"; then
+            CXX=clang++
+          elif "${COMPILER}" == "gcc"; then
+            CXX=g++
+          fi
+          # export CC
+          export CXX
+          export CC
+        fi
+        mkdir -p build
+        cd build
+        CC=$CC CXX=$CXX cmake .. -DCPPDAP_BUILD_TESTS=${{ inputs.tests }} -DCPPDAP_BUILD_FUZZER=${{ inputs.fuzzer }} -DCPPDAP_MSAN=${{ inputs.msan }} -DCPPDAP_TSAN=${{ inputs.tsan }} -DCPPDAP_ASAN=${{ inputs.asan }} -DCMAKE_BUILD_TYPE=${{ inputs.config }}
+        cmake --build . --config ${{ inputs.config }}
