@@ -74,6 +74,7 @@ jobs:
           cmake --build .  --config ${{ matrix.config }}
 
       - name: Run tests
+        shell: bash
         run: |
           cd build
           ./cppdap-unittests
@@ -125,6 +126,7 @@ jobs:
           cmake --build . --config ${{ matrix.config }}
 
       - name: Run tests
+        shell: bash
         run: |
           cd build
           ./cppdap-unittests
