@@ -76,7 +76,7 @@ jobs:
       - name: Run tests
         run: |
           cd build
-          ctest --output-on-failure -C ${{ matrix.config }}
+          ./cppdap-unittests
 
   linux-tests:
     name: Linux tests ( ${{ matrix.config }} ${{ matrix.compiler.CC }} ${{ matrix.flags }} )
@@ -90,6 +90,11 @@ jobs:
         config: ["Debug", "Release"]
         compiler: [ {CXX: g++, CC: gcc}, {CXX: clang++, CC: clang} ]
         flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON"]
+        exclude:
+          - config: "Release"
+            flags: "-DCPPDAP_TSAN=ON"
+          - config: "Release"
+            flags: "-DCPPDAP_ASAN=ON"
     env:
       DEBIAN_FRONTEND: noninteractive
 
