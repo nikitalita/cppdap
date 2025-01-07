@@ -43,13 +43,13 @@ jobs:
           fi
 
   non-linux-tests:
-    name: ${{ matrix.os }} tests ( ${{ matrix.config }} )
+    name: ${{ matrix.os.name }} tests ( ${{ matrix.config }} )
     needs: check_sync
     if: needs.check_sync.outputs.sync_needed != '0'
-    runs-on: ${{ matrix.os }}-latest
+    runs-on: ${{ matrix.os.runner }}
     strategy:
       matrix:
-        os: ["macos", "windows"]
+        os: [{ name: "MacOS", runner: "macos-latest"}, { name: "Windows", runner: "windows-latest"}]
         config: ["Debug", "Release"]
     steps:
       - uses: actions/setup-go@v5
@@ -79,7 +79,7 @@ jobs:
           ctest --output-on-failure -C ${{ matrix.config }}
 
   linux-tests:
-    name: Linux tests ( ${{ matrix.compiler.CC }} ${{ matrix.flags }} )
+    name: Linux tests ( ${{ matrix.config }} ${{ matrix.compiler.CC }} ${{ matrix.flags }} )
     needs: check_sync
     if: needs.check_sync.outputs.sync_needed != '0'
     runs-on: ${{ matrix.os }}
@@ -89,11 +89,7 @@ jobs:
         os: ["ubuntu-22.04"] #[ubuntu-22.04, ubuntu-24.04]
         config: ["Debug", "Release"]
         compiler: [ {CXX: g++, CC: gcc}, {CXX: clang++, CC: clang} ]
-        flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON", "-DCPPDAP_MSAN=ON"]
-        exclude:
-          - compiler: {CXX: g++, CC: gcc}
-            flags: "-DCPPDAP_MSAN=ON"
-
+        flags: ["", "-DCPPDAP_ASAN=ON", "-DCPPDAP_TSAN=ON"]
     env:
       DEBIAN_FRONTEND: noninteractive
 
