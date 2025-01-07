@@ -5,7 +5,7 @@ on:
     - cron: '0 0 * * *'
   # also allow manual runs
   workflow_dispatch:
-
+  workflow_call:
 
 jobs:
   check_sync:

@@ -114,8 +114,19 @@ func main() {
 	// bool flag to skip clang-format
 	noFormat := flag.Bool("no-format", false, "Skip clang-format")
 	dryRun := flag.Bool("dry-run", false, "Dry run")
+	currentVersion := flag.Bool("version", false, "Print protocol version currently in use and exit")
+
 	flag.Parse()
-	if err := run(*noFormat, *dryRun); err != nil {
+	if (*currentVersion) {
+		// Print current version and exit
+		_, _, cMakeListsPath, _, _ := outputPaths()
+		version, err := getCurrentCMakePackageVersion(cMakeListsPath)
+		if (err != nil) {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stdout, "%v\n", version)
+	} else if err := run(*noFormat, *dryRun); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
