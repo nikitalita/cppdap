@@ -25,8 +25,12 @@ inputs:
     description: 'Build fuzzer'
     required: false
     default: false
-  compiler:
-    description: 'Compiler to use'
+  CXX:
+    description: 'C++ Compiler to use'
+    required: false
+    default: ''
+  CC:
+    description: 'C Compiler to use'
     required: false
     default: ''
 
@@ -36,17 +40,7 @@ runs:
     - name: Build source
       shell: bash
       run: |
-        COMPILER=${{ inputs.compiler }}
-        if [ -n "$COMPILER" ]; then
-          CC=$COMPILER
-          CXX=$COMPILER
-          if "${COMPILER}" == "clang"; then
-            CXX=clang++
-          elif "${COMPILER}" == "gcc"; then
-            CXX=g++
-          fi
-        fi
         mkdir -p build
         cd build
-        CC=$CC CXX=$CXX cmake .. -DCPPDAP_BUILD_TESTS=${{ inputs.tests }} -DCPPDAP_BUILD_FUZZER=${{ inputs.fuzzer }} -DCPPDAP_MSAN=${{ inputs.msan }} -DCPPDAP_TSAN=${{ inputs.tsan }} -DCPPDAP_ASAN=${{ inputs.asan }} -DCMAKE_BUILD_TYPE=${{ inputs.config }}
+        CC="${{ inputs.CC }}" CXX="${{ inputs.CXX }}" cmake .. -DCPPDAP_BUILD_TESTS=${{ inputs.tests }} -DCPPDAP_BUILD_FUZZER=${{ inputs.fuzzer }} -DCPPDAP_MSAN=${{ inputs.msan }} -DCPPDAP_TSAN=${{ inputs.tsan }} -DCPPDAP_ASAN=${{ inputs.asan }} -DCMAKE_BUILD_TYPE=${{ inputs.config }}
         cmake --build . --config ${{ inputs.config }}

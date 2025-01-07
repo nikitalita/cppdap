@@ -78,7 +78,7 @@ jobs:
           ctest --output-on-failure -C ${{ matrix.config }}
 
   linux-tests:
-    name: Linux tests ( ${{ matrix.config }} ${{ matrix.compiler }} ${{ matrix.sanitizer }} )
+    name: Linux tests ( ${{ matrix.config }} ${{ matrix.compiler.CC }} ${{ matrix.sanitizer }} )
     needs: check_sync
     if: needs.check_sync.outputs.sync_needed != '0'
     runs-on: ${{ matrix.os }}
@@ -87,7 +87,7 @@ jobs:
       matrix:
         os: ["ubuntu-22.04"] #[ubuntu-22.04, ubuntu-24.04]
         config: ["Debug", "Release"]
-        compiler: [ "gcc", "clang" ]
+        compiler: [ {CXX: g++, CC: gcc}, {CXX: clang++, CC: clang} ]
         sanitizer: ["", "asan", "tsan"]
         exclude:
           - config: "Release"
@@ -126,7 +126,8 @@ jobs:
           config: ${{ matrix.config }}
           tests: true
           fuzzer: false
-          compiler: ${{ matrix.compiler }}
+          CC: ${{ matrix.compiler.CC }}
+          CXX: ${{ matrix.compiler.CXX }}
   
       - name: Run tests
         shell: bash
