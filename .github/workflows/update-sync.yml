@@ -1,0 +1,62 @@
+name: Update protocol sync
+on:
+  workflow_dispatch:
+
+jobs:
+  check_ref:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that ref is "main"
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "This workflow can only be run on the main branch."
+            exit 1
+          fi
+
+  try_sync:
+    needs: check_ref
+    uses: ./.github/workflows/check-sync.yml
+
+  update_cppdap:
+    needs: try_sync
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+      - name: Install packages
+        run: |
+          sudo apt-get -q -y update
+          sudo apt-get -q -y install build-essential cmake git clang clang-format
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+          ref: main
+      - name: run protocol_gen
+        run: |
+          OUTPUT=$(go run tools/protocol_gen/protocol_gen.go -dry-run)
+          # check if OUTPUT is empty
+          if [ -z "$OUTPUT" ]; then
+            echo "No changes needed. Exiting."
+            exit 1
+          fi
+          go run tools/protocol_gen/protocol_gen.go
+      # we need to commit the changes to the protocol files
+      - name: Commit changes
+        run: |
+          NEW_VERSION=$(go run tools/protocol_gen/protocol_gen.go -get-version)
+          # check to make sure that there is no current tag with the same version
+          NEW_TAG="dap-${NEW_VERSION}-a"
+          if git tag -l | grep -q "$NEW_TAG"; then
+            echo "Tag $NEW_TAG already exists. Exiting."
+            exit 1
+          fi
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "my-github-actions-bot@example.org"
+          git add *
+          git commit -m "Update to $NEW_VERSION"
+          git tag -a "${NEW_TAG}" -m "Update to $NEW_VERSION"
+          git push origin main
+          git push origin "${NEW_TAG}"
